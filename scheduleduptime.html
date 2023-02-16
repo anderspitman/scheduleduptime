@@ -10,11 +10,15 @@
         max-width: 600px;
         margin: 0 auto;
       }
+
+      pre {
+        background-color: #ddd;
+      }
     </style>
   </head>
   <body>
     <div class='content'>
-      <h1>Hi there</h1>
+      <h1>This web page is usually not available</h1>
       <p>
         Welcome to scheduleduptime.com. We strive to achieve 100% downtime.
         Unfortunately, due to the realities of new users and occasional
@@ -28,21 +32,60 @@
 
       <p>
         The next scheduled uptime is available by performing a DNS query for
-        TXT records on the scheduleduptime.com domain. This web page is
+        TXT records on the next.scheduleduptime.com subdomain
+        (current.scheduleduptime.com is also provided). This web page is
         available over HTTP at the times indicated. The VM running this site
         shuts down during all other times.
       </p>
 
       <p>
         If you're interested in our content but not able to access it during
-        scheduled uptime, Here is a node.js script that will determine the
-        next uptime window and retrieve the HTML content at the appropriate
-        time, saving it to scheduleduptime.html to be read at your leisure.
+        scheduled uptime, here is a simple node.js script that should
+        continually determine the next uptime window and retrieve the HTML
+        content at the appropriate time, saving the latest version to
+        scheduleduptime.html to be read at your leisure:
       </p>
 
       <pre><code>
-import 'fs';
+import fs from 'fs';
+import dns from 'dns';
+import http from 'https';
+
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+
+run();
+
+function run() {
+  dns.resolveTxt('next.scheduleduptime.com', (err, records) => {
+    const [beginIso8601,endIso8601] = records[0][0].split(',');
+    const begin = new Date(beginIso8601);
+    const now = new Date();
+
+    const msUntil = (begin - now) + TEN_MINUTES_MS;
+    console.log(`Next download scheduled in ${msUntil / 1000} seconds`);
+    setTimeout(() => {
+      retreivePage();
+      run();
+    }, msUntil);
+  });
+}
+
+function retreivePage() {
+  http.get('https://scheduleduptime.com', (res) => {
+    const { statusCode } = res;
+    if (statusCode !== 200) {
+      res.resume();
+      return;
+    }
+
+    const file = fs.createWriteStream('scheduleduptime.html');
+    res.pipe(file);
+  });
+}
       </code></pre>
     </div>
+
+    <script data-goatcounter="https://scheduleduptime-com.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
   </body>
 </html>
